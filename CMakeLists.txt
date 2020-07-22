@@ -3,7 +3,7 @@ cmake_minimum_required (VERSION 3.0)
 project (Tutorials)
 
 find_package(OpenGL REQUIRED)
-
+set (CMAKE_CXX_STANDARD 11) # important for in-class initializer for non-static members
 
 if( CMAKE_BINARY_DIR STREQUAL CMAKE_SOURCE_DIR )
     message( FATAL_ERROR "Please select another Build Directory ! (and give it a clever name, like bin_Visual2012_64bits/)" )
@@ -517,6 +517,15 @@ add_executable(playground
 	playground/playground.cpp
 	common/shader.cpp
 	common/shader.hpp
+	common/texture.cpp
+	common/texture.hpp
+	playground/TransformVertexShader.vertexshader
+	playground/TextureFragmentShader.fragmentshader
+#	playground/Control/camera.h
+	playground/Control/camera.cpp
+#	playground/Control/trackball.h
+	playground/Control/trackball.cpp
+
 )
 target_link_libraries(playground
 	${ALL_LIBS}
