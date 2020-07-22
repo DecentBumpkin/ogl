@@ -11,14 +11,16 @@
 #include <common/texture.hpp>
 #include <playground/Control/camera.h>
 #include <playground/Control/trackball.h>
-
+#include <boost/bind.hpp>
 using namespace glm;
+
 class Scene 
 {
 public:
 	Scene(){}
 	int init();
 	void computeMatricesFromInputs();
+	void computeMatricesFromInputsPro();
 	inline glm::mat4 getViewMatrix() { return ViewMatrix; }
 	inline glm::mat4 getProjectionMatrix() { return ProjectionMatrix; }
 private:
@@ -36,8 +38,13 @@ private:
 	float speed = 3.0f; // 3 units / second
 	float mouseSpeed = 0.005f;
 	GLFWwindow* window;
-	TrackBall	trackball_;
-	Camera		camera_;
+	static TrackBall	trackball_;
+	static Camera		camera_;
+	static double xpos_, ypos_;
+	// static members
+	static void mouse_button_callback(GLFWwindow* window, int button, int action, int mods);
+	static void scroll_callback(GLFWwindow* window, double xoffset, double yoffset);
+	static void cursor_position_callback(GLFWwindow* window, double xpos, double ypos);
 
 };
 
@@ -64,9 +71,9 @@ int Scene::init(){
 	glfwWindowHint(GLFW_OPENGL_PROFILE, GLFW_OPENGL_CORE_PROFILE);
 
 	// Open a window and create its OpenGL context
-	window = glfwCreateWindow( 1024, 768, "Tutorial 0 - Keyboard and Mouse", NULL, NULL);
+	window = glfwCreateWindow( 1024, 768, "Playground", NULL, NULL);
 	if( window == NULL ){
-		fprintf( stderr, "Failed to open GLFW window. If you have an Intel GPU, they are not 3.3 compatible. Try the 2.1 version of the tutorials.\n" );
+		fprintf( stderr, "Failed to open GLFW window.\n" );
 		getchar();
 		glfwTerminate();
 		return -1;
@@ -83,13 +90,14 @@ int Scene::init(){
 	}
 
 	// Ensure we can capture the escape key being pressed below
+	// When sticky keys mode is enabled, the pollable state of a key will remain GLFW_PRESS
 	glfwSetInputMode(window, GLFW_STICKY_KEYS, GL_TRUE);
     // Hide the mouse and enable unlimited mouvement
-    glfwSetInputMode(window, GLFW_CURSOR, GLFW_CURSOR_DISABLED);
+    glfwSetInputMode(window, GLFW_CURSOR, GLFW_CURSOR_NORMAL);
     
     // Set the mouse at the center of the screen
     glfwPollEvents();
-    glfwSetCursorPos(window, 1024/2, 768/2);
+    // glfwSetCursorPos(window, 1024/2, 768/2);
 
 	// Dark blue background
 	glClearColor(0.0f, 0.0f, 0.4f, 0.0f);
@@ -286,70 +294,56 @@ int Scene::init(){
 
 
 void Scene::computeMatricesFromInputs(){
-
-	// glfwGetTime is called only once, the first time this function is called
+	glfwSetMouseButtonCallback(window, mouse_button_callback);
+	glfwSetScrollCallback(window, scroll_callback);
+	glfwSetCursorPosCallback(window, Scene::cursor_position_callback);
 	static double lastTime = glfwGetTime();
-
-	// Compute time difference between current and last frame
 	double currentTime = glfwGetTime();
 	float deltaTime = float(currentTime - lastTime);
-
-	// Get mouse position
-	double xpos, ypos;
-	glfwGetCursorPos(window, &xpos, &ypos);
-
-	// Reset mouse position for next frame
-	glfwSetCursorPos(window, 1024/2, 768/2);
-
-	// Compute new orientation
-	horizontalAngle += mouseSpeed * float(1024/2 - xpos );
-	verticalAngle   += mouseSpeed * float( 768/2 - ypos );
-
-	// Direction : Spherical coordinates to Cartesian coordinates conversion
-	glm::vec3 direction(
-		cos(verticalAngle) * sin(horizontalAngle), 
-		sin(verticalAngle),
-		cos(verticalAngle) * cos(horizontalAngle)
-	);
-	
-	// Right vector
-	glm::vec3 right = glm::vec3(
-		sin(horizontalAngle - 3.14f/2.0f), 
-		0,
-		cos(horizontalAngle - 3.14f/2.0f)
-	);
-	
-	// Up vector
-	glm::vec3 up = glm::cross( right, direction );
-
-	// Move forward
-	if (glfwGetKey( window, GLFW_KEY_UP ) == GLFW_PRESS){
-		position += direction * deltaTime * speed;
-	}
-	// Move backward
-	if (glfwGetKey( window, GLFW_KEY_DOWN ) == GLFW_PRESS){
-		position -= direction * deltaTime * speed;
-	}
-	// Strafe right
-	if (glfwGetKey( window, GLFW_KEY_RIGHT ) == GLFW_PRESS){
-		position += right * deltaTime * speed;
-	}
-	// Strafe left
-	if (glfwGetKey( window, GLFW_KEY_LEFT ) == GLFW_PRESS){
-		position -= right * deltaTime * speed;
-	}
-
-	float FoV = initialFoV;// - 5 * glfwGetMouseWheel(); // Now GLFW 3 requires setting up a callback for this. It's a bit too complicated for this beginner's tutorial, so it's disabled instead.
-
-	// Projection matrix : 45� Field of View, 4:3 ratio, display range : 0.1 unit <-> 100 units
-	ProjectionMatrix = glm::perspective(glm::radians(FoV), 4.0f / 3.0f, 0.1f, 100.0f);
-	// Camera matrix
-	ViewMatrix       = glm::lookAt(
-								position,           // Camera is here
-								position+direction, // and looks here : at the same position, plus "direction"
-								up                  // Head is up (set to 0,-1,0 to look upside-down)
-						   );
-
-	// For the next frame, the "last time" will be "now"
 	lastTime = currentTime;
+
+    ProjectionMatrix = glm::perspective<float>(glm::radians(camera_.get_zoom()), 4.0f/3.0f, 0.1f, 100.0f);
+    ViewMatrix = camera_.get_view_matrix() * trackball_.get_rotation_matrix();
 }
+
+// static members
+void Scene::mouse_button_callback(GLFWwindow* window, int button, int action, int mods)
+{
+	if(button == GLFW_MOUSE_BUTTON_RIGHT){
+		if(action == GLFW_PRESS){
+			printf("moving camera...\n");
+			camera_.process_mouse_right_click(xpos_, ypos_);
+		}
+		else if(action == GLFW_RELEASE){
+			printf("release camera...\n");
+			camera_.process_mouse_right_release(xpos_, ypos_);
+		}
+	}
+	if(button == GLFW_MOUSE_BUTTON_LEFT){
+		if(action == GLFW_PRESS){
+			printf("moving trackball...\n");
+			trackball_.process_mouse_left_click(xpos_, ypos_);
+		}
+		else if(action == GLFW_RELEASE){
+			printf("release trackball...\n");
+			trackball_.process_mouse_left_release(xpos_, ypos_);
+		}
+	}
+}
+void Scene::scroll_callback(GLFWwindow* window, double xoffset, double yoffset){
+	// printf("Mouse wheel x: %5.2lf, y: %5.2lf\n", xoffset, yoffset);
+	camera_.process_mouse_scroll(yoffset);
+}
+void Scene::cursor_position_callback(GLFWwindow* window, double xpos, double ypos)
+{
+	// printf("Cursor pos  x: %5.2lf, y: %5.2lf\n", xpos, ypos);
+	camera_.process_mouse_right_movement(xpos, ypos);
+	trackball_.process_mouse_left_movement(xpos, ypos);
+	xpos_ = xpos;
+	ypos_ = ypos;
+}
+
+TrackBall Scene::trackball_ = TrackBall(1024,768);
+Camera Scene::camera_;
+double Scene::xpos_;
+double Scene::ypos_;

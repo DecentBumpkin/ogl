@@ -16,6 +16,10 @@ if( CMAKE_BINARY_DIR MATCHES " " )
 endif()
 
 
+find_package(Boost REQUIRED COMPONENTS system thread filesystem)
+include_directories(
+    ${Boost_INCLUDE_DIRS}
+)
 
 # Compile external dependencies 
 add_subdirectory (external)
@@ -529,6 +533,7 @@ add_executable(playground
 )
 target_link_libraries(playground
 	${ALL_LIBS}
+	${Boost_LIBRARIES}
 )
 # Xcode and Visual working directories
 set_target_properties(playground PROPERTIES XCODE_ATTRIBUTE_CONFIGURATION_BUILD_DIR "${CMAKE_CURRENT_SOURCE_DIR}/playground/")
