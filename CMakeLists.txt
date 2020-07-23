@@ -539,7 +539,23 @@ target_link_libraries(playground
 set_target_properties(playground PROPERTIES XCODE_ATTRIBUTE_CONFIGURATION_BUILD_DIR "${CMAKE_CURRENT_SOURCE_DIR}/playground/")
 create_target_launcher(playground WORKING_DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}/playground/")
 
+add_executable(demo_pointcloud 
+	demo_pointcloud/demo_pointcloud.cpp
+	common/shader.cpp
+	common/texture.cpp
+	demo_pointcloud/SimpleVertexShader.vertexshader
+	demo_pointcloud/SimpleFragmentShader.fragmentshader
+	playground/Control/camera.cpp
+	playground/Control/trackball.cpp
 
+)
+target_link_libraries(demo_pointcloud
+	${ALL_LIBS}
+	${Boost_LIBRARIES}
+)
+# Xcode and Visual working directories
+set_target_properties(demo_pointcloud PROPERTIES XCODE_ATTRIBUTE_CONFIGURATION_BUILD_DIR "${CMAKE_CURRENT_SOURCE_DIR}/demo_pointcloud/")
+create_target_launcher(demo_pointcloud WORKING_DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}/demo_pointcloud/")
 
 # Misc 5, with glReadPixels
 add_executable(misc05_picking_slow_easy
